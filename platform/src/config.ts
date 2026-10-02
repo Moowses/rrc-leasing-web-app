@@ -5,7 +5,9 @@ const configSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4180),
   DATABASE_URL: z.string().url(),
   RRC_PLATFORM_ORIGINS: z.string().min(1),
-  RRC_AUTH_PROVIDER: z.enum(['unconfigured', 'microsoft-entra', 'google-workspace']).default('unconfigured'),
+  // `local-password` is intentionally explicit: production staff sign-in is
+  // disabled until an operator opts in through the production environment.
+  RRC_AUTH_PROVIDER: z.enum(['unconfigured', 'local-password', 'microsoft-entra', 'google-workspace']).default('unconfigured'),
 });
 
 export type PlatformConfig = z.infer<typeof configSchema> & { origins: ReadonlySet<string> };

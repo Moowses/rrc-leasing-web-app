@@ -14,7 +14,8 @@
     "db:validate": "prisma validate",
     "db:format": "prisma format",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "staff:upsert": "node --enable-source-maps dist/manage-staff.js"
   },
   "engines": {
     "node": ">=20"

@@ -49,3 +49,19 @@ test('admin and client portal previews are separate and do not expose data APIs'
   const unknownAsset = await app.inject({ method: 'GET', url: '/portal/unknown.txt' });
   assert.equal(unknownAsset.statusCode, 404);
 });
+
+test('production rejects public bootstrap and non-HTTPS password sign-in', async t => {
+  const app = buildApp(loadConfig({
+    NODE_ENV: 'production',
+    DATABASE_URL: 'postgresql://platform:password@localhost:5432/platform',
+    RRC_PLATFORM_ORIGINS: 'https://rosefoodrealtycorp.com',
+    RRC_AUTH_PROVIDER: 'local-password',
+  }));
+  t.after(() => app.close());
+
+  const bootstrap = await app.inject({ method: 'GET', url: '/api/auth/bootstrap-status', remoteAddress: '127.0.0.1' });
+  assert.equal(bootstrap.statusCode, 403);
+
+  const login = await app.inject({ method: 'POST', url: '/api/auth/login', payload: { email: 'staff@example.com', password: 'safe-password-123' } });
+  assert.equal(login.statusCode, 403);
+});
