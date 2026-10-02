@@ -1,0 +1,23 @@
+RRC WEBSITE - IT MANAGER HANDOVER
+
+Open IT-HANDOVER.md first.
+
+This package contains the editable website source, local assets and fonts,
+verification scripts, Zoho configuration guidance and the remaining work
+required for public operation.
+
+Quick local review:
+1. Install a supported Node.js release meeting the minimum version in package.json (20+).
+2. Open a terminal in the website folder.
+3. Run: node server.mjs
+4. Open http://127.0.0.1:4173 on the same computer.
+5. Keep the terminal open; press Ctrl+C to stop.
+
+No frontend build or package installation is required for the local preview.
+Mail sending is disabled until the mail dependency and private server settings
+are configured. No passwords, mailbox credentials or personal applications
+are included in this package.
+
+This is not an install-and-go production system. Administrator/CMS functions,
+live tenant intake, verified property content and production hosting still
+require implementation. See IT-HANDOVER.md and website/FINAL-REVIEW.md.

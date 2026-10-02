@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: rrc_platform
+      POSTGRES_USER: rrc_platform
+      POSTGRES_PASSWORD: replace-this-development-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - rrc-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rrc_platform -d rrc_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rrc-postgres-data:

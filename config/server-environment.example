@@ -1,0 +1,21 @@
+# EXAMPLE ONLY. No real credentials are included.
+# These names must be configured in the service's private environment.
+# The current server does not automatically read this file or a .env file.
+# Use the exact Zoho outgoing hostname from the authorized account settings.
+PORT=4173
+# Leave blank for the localhost-only review server. For production, use a
+# comma-separated exact origin list, for example https://www.example.com.
+RRC_PUBLIC_ORIGINS=
+# Keep 127.0.0.1 when using a local reverse proxy. Change only when the host
+# firewall and deployment design explicitly require another bind address.
+RRC_BIND_HOST=127.0.0.1
+# The property API stays private; the public website proxies approved listings
+# and cover images through this same-origin endpoint.
+RRC_PLATFORM_API_ORIGIN=http://127.0.0.1:4180
+RRC_SMTP_HOST=
+RRC_SMTP_PORT=465
+RRC_SMTP_USER=
+RRC_SMTP_PASSWORD=
+RRC_SMTP_FROM=
+RRC_RECRUITMENT_SEND_ENABLED=false
+RRC_VIEWING_SEND_ENABLED=false

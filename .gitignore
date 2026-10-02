@@ -1,0 +1,29 @@
+# Local environment configuration and credentials
+**/.env
+**/.env.*
+!**/.env.example
+
+# Installed dependencies and build output
+**/node_modules/
+**/dist/
+**/coverage/
+**/.npm-cache/
+
+# Local runtime data, uploads, logs, and backups
+uploads/
+data/
+backups/
+*.log
+*.bak
+*.sqlite
+*.sqlite3
+*.db
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+
+# Local Codex and presentation build artifacts
+.codex-finalizer/
+.ppt-build/*.pptx
+.ppt-build/*.ndjson
