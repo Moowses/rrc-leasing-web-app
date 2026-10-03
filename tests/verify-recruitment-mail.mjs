@@ -121,6 +121,18 @@ test('HTTP disabled status is honest and public files cannot expose server, setu
   assert.equal((await fetch(`${base}/index.html`)).status, 200);
 });
 
+test('customer acknowledgement is opt-in, contains no resume, and follows staff acceptance', async () => {
+  const messages = [];
+  const mailer = await createRecruitmentMailer({ env: { ...env, RRC_CUSTOMER_CONFIRMATION_ENABLED: 'true' }, transportFactory: () => ({ sendMail: async mail => { messages.push(mail); return { accepted: [mail.to] }; } }) });
+  const result = await mailer.send(payload());
+  assert.equal(result.customerConfirmationSent, true);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[0].to, RECRUITMENT_RECIPIENT);
+  assert.equal(messages[1].to, 'synthetic@example.test');
+  assert.equal(messages[1].attachments, undefined);
+  assert.match(messages[1].text, /does not confirm an interview or employment/);
+});
+
 test('configured production origins are exact and preserve host/origin protection', async t => {
   const env = { RRC_PUBLIC_ORIGINS: 'https://www.example.com, https://staging.example.com' };
   const server = await createPreviewServer({ env, recruitmentMailer: { enabled: false }, viewingMailer: { enabled: false } });

@@ -72,7 +72,7 @@ function configuration(env) {
   const from = env.RRC_SMTP_FROM?.trim();
   const port = Number(env.RRC_SMTP_PORT);
   if (!host || !/^[A-Za-z0-9.-]+$/.test(host) || ![465, 587].includes(port) || !isEmail(user) || !pass || !isEmail(from) || !from.toLowerCase().endsWith('@rosefoodrealtycorp.com')) return null;
-  return { host, port, user, pass, from };
+  return { host, port, user, pass, from, customerConfirmation: env.RRC_CUSTOMER_CONFIRMATION_ENABLED === 'true' };
 }
 
 export async function createViewingMailer({ env = process.env, transportFactory, properties } = {}) {
@@ -119,7 +119,21 @@ export async function createViewingMailer({ env = process.env, transportFactory,
       try {
         const result = await transport.sendMail(mail);
         if (!result.accepted?.some(address => String(address).toLowerCase() === VIEWING_RECIPIENT)) throw new Error('Recipient not accepted');
-        return { sent: true, message: 'Your viewing request has been accepted by the mail service for delivery to Leasing. The viewing is not confirmed; our team will contact you.' };
+        let customerConfirmationSent = false;
+        if (config.customerConfirmation) {
+          try {
+            const confirmation = await transport.sendMail({
+              from: { name: 'RRC Leasing', address: config.from },
+              to: viewing.email,
+              replyTo: { name: 'RRC Leasing', address: VIEWING_RECIPIENT },
+              subject: `We received your viewing request for ${viewing.property.title}`,
+              text: [`Hello ${viewing.name},`, '', 'Thank you for your viewing request with Rosefood Realty Corporation.', `Property: ${viewing.property.title} (${viewing.property.id})`, `Preferred date: ${viewing.date} (Philippine time)`, `Preferred time: ${viewing.time}`, '', 'This is a request only, not a confirmed appointment. The RRC Leasing team will contact you to discuss availability and agree a schedule.', '', 'Rosefood Realty Corporation'].join('\n'),
+              disableFileAccess: true, disableUrlAccess: true,
+            });
+            customerConfirmationSent = confirmation.accepted?.some(address => String(address).toLowerCase() === viewing.email.toLowerCase()) === true;
+          } catch { /* Staff delivery already succeeded; do not invite duplicate requests. */ }
+        }
+        return { sent: true, customerConfirmationSent, message: 'Your viewing request has been accepted by the mail service for delivery to Leasing. The viewing is not confirmed; our team will contact you.' };
       } catch {
         throw new ApplicationError(502, 'We could not confirm email delivery. Please contact leasing@rosefoodrealtycorp.com before retrying to avoid a duplicate request.');
       }

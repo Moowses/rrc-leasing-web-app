@@ -19,10 +19,11 @@ Store the following in the hosting platform's server-side secret/environment set
 | `RRC_SMTP_FROM` | Authorized RRC sender address ending in `@rosefoodrealtycorp.com` |
 | `RRC_RECRUITMENT_SEND_ENABLED` | Leave unset/`false` for preview; set exactly `true` only when RRC authorizes activation |
 | `RRC_VIEWING_SEND_ENABLED` | Separate viewing-request activation; leave unset/`false` until configured and ready for testing |
+| `RRC_CUSTOMER_CONFIRMATION_ENABLED` | Leave unset/`false` until customer acknowledgements are approved. When exactly `true`, customers receive a plain-text acknowledgement only after the staff mailbox accepted the original request. |
 
 Use Node.js 20 or later. Before activation, run `npm install --omit=dev` in the website directory, then `npm start` with the environment supplied by the host. The package pins Nodemailer 10.0.11, whose declared runtime is Node 20+. [Official npm package](https://www.npmjs.com/package/nodemailer).
 
-The package is loaded only when sending is explicitly enabled and configuration is complete. Without it, the server still runs and reports recruitment as unavailable. No SMTP call occurs on startup or on a status check. An enabled status means configuration and the library are present; it does **not** verify credentials or prove inbox delivery.
+The package is loaded only when sending is explicitly enabled and configuration is complete. Without it, the server still runs and reports recruitment as unavailable. No SMTP call occurs on startup or on a status check. An enabled status means configuration and the library are present; it does **not** verify credentials or prove inbox delivery. Customer confirmations are a separate explicit opt-in and are sent only after the corresponding staff mailbox accepts the original message.
 
 ## What is implemented
 
@@ -49,7 +50,7 @@ This direct email workflow has no durable queue or application tracking referenc
 
 Viewing requests use the same private SMTP connection settings, with the separate `RRC_VIEWING_SEND_ENABLED=true` flag. Their fixed recipient is **leasing@rosefoodrealtycorp.com**. The recruitment activation flag does not enable viewing delivery, and neither flag enables tenant application submission.
 
-The viewing email includes the property reference and server-resolved property details, requester's name and email, optional phone, preferred date and time, and optional message. Reply-To uses the validated requester address. Leasing must confirm the appointment separately; successful email submission is not a booked viewing.
+The viewing email includes the property reference and server-resolved property details, requester's name and email, optional phone, preferred date and time, and optional message. Reply-To uses the validated requester address. Leasing must confirm the appointment separately; successful email submission is not a booked viewing. When customer acknowledgements are enabled, the requester also receives a plain-text confirmation that repeats the property and preference, makes no promise of availability, and contains no attachments.
 
 The interface checks `GET /api/viewing/status`. `POST /api/viewing` accepts `propertyId`, `name`, `email`, optional `phone`, `date` in YYYY-MM-DD format, `time` (Morning, Afternoon or Flexible), and optional `message`. The server checks the property against its available catalog; client-supplied property titles or recipients cannot redirect or relabel the message.
 

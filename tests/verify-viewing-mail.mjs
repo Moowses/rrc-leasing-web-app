@@ -67,6 +67,18 @@ test('mail is fixed to Leasing with approved property details and Reply-To; succ
   assert.equal(message.disableFileAccess, true); assert.equal(message.disableUrlAccess, true);
 });
 
+test('customer acknowledgement is opt-in, contains no attachment, and does not confirm a viewing', async () => {
+  const messages = [];
+  const mailer = await createViewingMailer({ env: { ...env, RRC_CUSTOMER_CONFIRMATION_ENABLED: 'true' }, properties, transportFactory: () => ({ sendMail: async mail => { messages.push(mail); return { accepted: [mail.to] }; } }) });
+  const result = await mailer.send(payload());
+  assert.equal(result.customerConfirmationSent, true);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[0].to, VIEWING_RECIPIENT);
+  assert.equal(messages[1].to, 'synthetic@example.test');
+  assert.equal(messages[1].attachments, undefined);
+  assert.match(messages[1].text, /not a confirmed appointment/);
+});
+
 test('invalid data never sends; rejection and ambiguous SMTP failures return generic errors with contact guidance', async () => {
   let sends = 0;
   const validMailer = await createViewingMailer({ env, properties, transportFactory: () => ({ sendMail: async () => { sends++; return { accepted: [VIEWING_RECIPIENT] }; } }) });

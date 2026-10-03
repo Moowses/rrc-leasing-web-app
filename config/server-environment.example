@@ -19,3 +19,6 @@ RRC_SMTP_PASSWORD=
 RRC_SMTP_FROM=
 RRC_RECRUITMENT_SEND_ENABLED=false
 RRC_VIEWING_SEND_ENABLED=false
+# Sends a simple customer acknowledgement after HR or Leasing accepts the
+# original message. Keep false until the wording and delivery test are approved.
+RRC_CUSTOMER_CONFIRMATION_ENABLED=false

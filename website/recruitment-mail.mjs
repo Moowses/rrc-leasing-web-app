@@ -96,7 +96,7 @@ function configuration(env) {
   const from = env.RRC_SMTP_FROM?.trim();
   const port = Number(env.RRC_SMTP_PORT);
   if (!host || !/^[A-Za-z0-9.-]+$/.test(host) || ![465, 587].includes(port) || !isEmail(user) || !pass || !isEmail(from) || !from.toLowerCase().endsWith('@rosefoodrealtycorp.com')) return null;
-  return { host, port, user, pass, from };
+  return { host, port, user, pass, from, customerConfirmation: env.RRC_CUSTOMER_CONFIRMATION_ENABLED === 'true' };
 }
 
 export async function createRecruitmentMailer({ env = process.env, transportFactory } = {}) {
@@ -141,7 +141,21 @@ export async function createRecruitmentMailer({ env = process.env, transportFact
       try {
         const result = await transport.sendMail(mail);
         if (!result.accepted?.some(address => String(address).toLowerCase() === RECRUITMENT_RECIPIENT)) throw new Error('Recipient not accepted');
-        return { sent: true, message: 'Your application has been accepted by the mail service for delivery to HR.' };
+        let customerConfirmationSent = false;
+        if (config.customerConfirmation) {
+          try {
+            const confirmation = await transport.sendMail({
+              from: { name: 'RRC Careers', address: config.from },
+              to: application.email,
+              replyTo: { name: 'RRC Recruitment', address: RECRUITMENT_RECIPIENT },
+              subject: `We received your RRC application for ${application.position}`,
+              text: [`Hello ${application.firstName},`, '', `Thank you for applying for the ${application.position} position with Rosefood Realty Corporation.`, 'Your application has been received for review by the RRC recruitment team.', '', 'This acknowledgement does not confirm an interview or employment. If your qualifications match the role, the team will contact you using the details you provided.', '', 'Rosefood Realty Corporation'].join('\n'),
+              disableFileAccess: true, disableUrlAccess: true,
+            });
+            customerConfirmationSent = confirmation.accepted?.some(address => String(address).toLowerCase() === application.email.toLowerCase()) === true;
+          } catch { /* Staff delivery already succeeded; do not invite duplicate applications. */ }
+        }
+        return { sent: true, customerConfirmationSent, message: 'Your application has been accepted by the mail service for delivery to HR.' };
       } catch {
         // SMTP may accept a message before a connection drops: do not promise it was not sent.
         throw new ApplicationError(502, 'We could not confirm email delivery. Please contact recruitment@rosefoodrealtycorp.com before retrying to avoid a duplicate application.');
