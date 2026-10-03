@@ -121,6 +121,13 @@ test('HTTP disabled status is honest and public files cannot expose server, setu
   assert.equal((await fetch(`${base}/index.html`)).status, 200);
 });
 
+test('existing MAIL_* SMTP variables are accepted when delivery is explicitly enabled', async () => {
+  let constructed = false;
+  const mailer = await createRecruitmentMailer({ env: { RRC_RECRUITMENT_SEND_ENABLED: 'true', MAIL_HOST: 'smtp.example.test', MAIL_PORT: '465', MAIL_USERNAME: 'test@rosefoodrealtycorp.com', MAIL_PASSWORD: 'synthetic-not-a-password', MAIL_FROM_ADDRESS: 'test@rosefoodrealtycorp.com' }, transportFactory: () => { constructed = true; return { sendMail: async () => ({ accepted: [RECRUITMENT_RECIPIENT] }) }; } });
+  assert.equal(mailer.enabled, true);
+  assert.equal(constructed, true);
+});
+
 test('customer acknowledgement is opt-in, contains no resume, and follows staff acceptance', async () => {
   const messages = [];
   const mailer = await createRecruitmentMailer({ env: { ...env, RRC_CUSTOMER_CONFIRMATION_ENABLED: 'true' }, transportFactory: () => ({ sendMail: async mail => { messages.push(mail); return { accepted: [mail.to] }; } }) });

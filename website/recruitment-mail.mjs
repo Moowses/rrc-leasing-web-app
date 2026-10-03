@@ -90,11 +90,13 @@ export function validateApplication(payload) {
 
 function configuration(env) {
   if (env.RRC_RECRUITMENT_SEND_ENABLED !== 'true') return null;
-  const host = env.RRC_SMTP_HOST?.trim();
-  const user = env.RRC_SMTP_USER?.trim();
-  const pass = env.RRC_SMTP_PASSWORD;
-  const from = env.RRC_SMTP_FROM?.trim();
-  const port = Number(env.RRC_SMTP_PORT);
+  // MAIL_* supports the existing Zoho/Laravel-style server environment while
+  // RRC_SMTP_* remains the documented deployment interface.
+  const host = env.RRC_SMTP_HOST?.trim() || env.MAIL_HOST?.trim();
+  const user = env.RRC_SMTP_USER?.trim() || env.MAIL_USERNAME?.trim();
+  const pass = env.RRC_SMTP_PASSWORD || env.MAIL_PASSWORD;
+  const from = env.RRC_SMTP_FROM?.trim() || env.MAIL_FROM_ADDRESS?.trim();
+  const port = Number(env.RRC_SMTP_PORT || env.MAIL_PORT);
   if (!host || !/^[A-Za-z0-9.-]+$/.test(host) || ![465, 587].includes(port) || !isEmail(user) || !pass || !isEmail(from) || !from.toLowerCase().endsWith('@rosefoodrealtycorp.com')) return null;
   return { host, port, user, pass, from, customerConfirmation: env.RRC_CUSTOMER_CONFIRMATION_ENABLED === 'true' };
 }

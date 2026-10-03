@@ -67,6 +67,13 @@ test('mail is fixed to Leasing with approved property details and Reply-To; succ
   assert.equal(message.disableFileAccess, true); assert.equal(message.disableUrlAccess, true);
 });
 
+test('existing MAIL_* SMTP variables are accepted when viewing delivery is explicitly enabled', async () => {
+  let constructed = false;
+  const mailer = await createViewingMailer({ env: { RRC_VIEWING_SEND_ENABLED: 'true', MAIL_HOST: 'smtp.example.test', MAIL_PORT: '465', MAIL_USERNAME: 'test@rosefoodrealtycorp.com', MAIL_PASSWORD: 'synthetic-not-a-password', MAIL_FROM_ADDRESS: 'test@rosefoodrealtycorp.com' }, properties, transportFactory: () => { constructed = true; return { sendMail: async () => ({ accepted: [VIEWING_RECIPIENT] }) }; } });
+  assert.equal(mailer.enabled, true);
+  assert.equal(constructed, true);
+});
+
 test('customer acknowledgement is opt-in, contains no attachment, and does not confirm a viewing', async () => {
   const messages = [];
   const mailer = await createViewingMailer({ env: { ...env, RRC_CUSTOMER_CONFIRMATION_ENABLED: 'true' }, properties, transportFactory: () => ({ sendMail: async mail => { messages.push(mail); return { accepted: [mail.to] }; } }) });
