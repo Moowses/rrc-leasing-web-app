@@ -29,6 +29,7 @@
     let documentMessage = '';
     let submissionError = '';
     let errors = {};
+    let finalReviewConfirmed = false;
     const files = [];
     const initialValues = {
       moveIn: '', leaseTerm: '', otherLeaseTerm: '', fullName: '', mobile: '', email: '', alternateMobile: '',
@@ -143,7 +144,7 @@
         <h1 id="${id('title')}" tabindex="-1">${sectionTitle()}</h1>
         <p class="app-required-note">Fields marked <span aria-hidden="true">*</span><span class="app-sr-only">with an asterisk</span> are required to continue this preview.</p>
         ${Object.keys(errors).length || submissionError ? `<div class="error app-error-summary" role="alert" tabindex="-1">${esc(submissionError || 'Please check the highlighted fields before continuing.')}</div>` : ''}
-        <form novalidate aria-labelledby="${id('title')}">${[leaseFields, applicantFields, detailFields, documentFields, reviewFields][step]()}<div class="app-form-actions"><button type="button" class="btn btn-secondary" data-action="previous">${step === 0 ? 'Back to property' : 'Back'}</button><span class="app-step-count">${step + 1} / 5</span><button type="submit" class="btn btn-primary">${step === 4 ? 'Submit application' : 'Continue'}${step === 4 ? '' : ' <span aria-hidden="true">→</span>'}</button></div></form>`;
+        <form novalidate aria-labelledby="${id('title')}">${[leaseFields, applicantFields, detailFields, documentFields, reviewFields][step]()}<div class="app-form-actions"><button type="button" class="btn btn-secondary" data-action="previous">${step === 0 ? 'Back to property' : 'Back'}</button><span class="app-step-count">${step + 1} / 5</span><button type="submit" class="btn btn-primary">${step === 4 ? 'Review and send application' : 'Continue'}${step === 4 ? '' : ' <span aria-hidden="true">→</span>'}</button></div></form>`;
       container.innerHTML = `<section class="app-shell" aria-label="Tenant application"><div class="app-preview-banner" role="note"><strong>Application intake is in development.</strong> Your request is recorded for the RRC leasing team. Supporting files are not uploaded in this phase.${draftRestored&&!completed?' Your saved draft has been restored for this browser session.':''}</div><div class="app-layout"><aside class="app-sidebar"><button type="button" class="app-back-link" data-action="back-property"><span aria-hidden="true">←</span> Property details</button><p class="app-eyebrow">Your selected space</p><h2>${esc(property.title || 'RRC property')}</h2><p class="app-property-location">${esc(property.area || '')}</p><span class="app-type-label">${commercial ? 'Commercial' : 'Residential'}</span><ol class="steps" aria-label="Application steps">${stepNames.map((name, index) => `<li class="${!completed && index === step ? 'is-current' : index < step || completed ? 'is-done' : ''}" ${!completed && index === step ? 'aria-current="step"' : ''}><span class="app-step-number" aria-hidden="true">${index < step || completed ? '✓' : index + 1}</span>${index < step && !completed ? `<button type="button" data-action="edit" data-step="${index}">${name}</button>` : `<span>${name}</span>`}</li>`).join('')}</ol><p class="app-sidebar-note">A few clear steps.<br>Review before submitting.<br>You can go back and edit.</p></aside><div class="app-content">${content}</div></div></section>`;
       if (focusHeading) container.querySelector(`#${id('title')}`)?.focus({ preventScroll: true });
     }
@@ -220,6 +221,27 @@
       if (typeof dialog.showModal === 'function') dialog.showModal();
     }
 
+    function showFinalReview(form) {
+      if (typeof document === 'undefined' || !document.body || document.querySelector(`[data-application-review="${prefix}"]`)) return false;
+      const term = values.leaseTerm === 'other' ? values.otherLeaseTerm : `${values.leaseTerm} months`;
+      const summary = commercial ? [
+        ['Property', property.title], ['Preferred occupancy', values.moveIn], ['Requested term', term], ['Business', values.businessName], ['Representative', values.fullName], ['Email', values.email], ['Mobile', values.mobile], ['Proposed use', values.intendedUse === 'Other' ? values.otherIntendedUse : values.intendedUse]
+      ] : [
+        ['Property', property.title], ['Preferred move-in', values.moveIn], ['Requested term', term], ['Applicant', values.fullName], ['Email', values.email], ['Mobile', values.mobile], ['Adults', values.adultCount], ['Parking', values.parking === 'yes' ? `${values.parkingCount} space(s)` : 'Not requested']
+      ];
+      const dialog = document.createElement('dialog');
+      dialog.className = 'app-submission-modal app-final-review-modal';
+      dialog.dataset.applicationReview = prefix;
+      dialog.setAttribute('aria-labelledby', `${id('final-review-title')}`);
+      dialog.innerHTML = `<div class="app-submission-modal__body"><button type="button" class="app-modal-close" data-review-action="close" aria-label="Return to application review">×</button><p class="app-eyebrow">Final check</p><h2 id="${id('final-review-title')}">Review before sending</h2><p>Please confirm these details before the application is sent to the RRC leasing team.</p><dl class="app-final-review-grid">${summary.filter(([, value]) => value !== '' && value != null).map(([label, value]) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`).join('')}</dl><div class="app-complete-actions"><button type="button" class="btn btn-secondary" data-review-action="close">Back to details</button><button type="button" class="btn btn-primary" data-review-action="send">Send application</button></div></div>`;
+      document.body.append(dialog);
+      dialog.querySelectorAll('[data-review-action="close"]').forEach(button => button.addEventListener('click', () => dialog.close()));
+      dialog.querySelector('[data-review-action="send"]')?.addEventListener('click', () => { finalReviewConfirmed = true; dialog.close(); form.requestSubmit(); });
+      dialog.addEventListener('close', () => dialog.remove(), { once: true });
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      return true;
+    }
+
     async function onSubmit(event) {
       if (!event.target.matches('form')) return;
       event.preventDefault();
@@ -238,6 +260,10 @@
           container.querySelector('[aria-invalid="true"]')?.focus();
           return;
         }
+      }
+      if (!finalReviewConfirmed) {
+        if (showFinalReview(event.target)) return;
+        finalReviewConfirmed = true;
       }
       const summary = commercial
         ? `Preferred occupancy: ${values.moveIn}; requested term: ${values.leaseTerm === 'other' ? values.otherLeaseTerm : `${values.leaseTerm} months`}; business: ${values.businessName}; proposed use: ${values.intendedUse === 'Other' ? values.otherIntendedUse : values.intendedUse}; operating hours: ${values.operatingHours}; notes: ${values.notes}`
@@ -275,6 +301,7 @@
       const target = event.target;
       const key = target.dataset.field;
       if (!key || !Object.prototype.hasOwnProperty.call(values, key)) return;
+      finalReviewConfirmed = false;
       values[key] = target.type === 'checkbox' ? target.checked : target.value;
       saveDraft();
       if (errors[key]) {

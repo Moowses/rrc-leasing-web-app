@@ -1,5 +1,9 @@
 # RRC Property Operations Platform — Phase 2 foundation
 
+## Deployment note
+
+This is a safe initial deployment. The staff workflow is ready for review, but secure sign-in and PostgreSQL must be configured before entering real property, applicant, renter or payment information. Keep these deployment instructions in this documentation rather than displaying them in the staff workspace.
+
 This folder is the protected backend foundation for the future staff and renter portals. It does not replace the public website in `../website`.
 
 ## What is available now

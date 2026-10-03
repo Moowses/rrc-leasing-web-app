@@ -31,7 +31,8 @@ test('admin and client portal previews are separate and do not expose data APIs'
   assert.equal(admin.statusCode, 200);
   assert.match(admin.headers['content-type'] ?? '', /text\/html/);
   assert.match(admin.body, /STAFF WORKSPACE/);
-  assert.match(admin.body, /This is a safe initial deployment/);
+  assert.match(admin.body, /Settings/);
+  assert.doesNotMatch(admin.body, /This is a safe initial deployment/);
   assert.match(admin.body, /Content and availability/);
   assert.match(admin.body, /Viewing and lease applications/);
 

@@ -85,6 +85,12 @@
 .app-submission-modal__body { padding: 34px; }
 .app-submission-modal__body h2 { margin: 0 0 12px; font-size: 30px; line-height: 1.2; }
 .app-submission-modal__body > p:not(.app-eyebrow) { margin: 0; color: var(--app-muted); line-height: 1.65; }
+.app-final-review-modal { width: min(680px, calc(100vw - 32px)); }
+.app-modal-close { position: absolute; top: 16px; right: 16px; display: grid; place-items: center; width: 42px; height: 42px; border: 0; border-radius: 50%; background: #eef3f6; color: var(--app-blue); font-size: 28px; line-height: 1; cursor: pointer; }
+.app-final-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 24px 0 0; }
+.app-final-review-grid div { padding: 13px 14px; border: 1px solid var(--app-line); border-radius: 7px; background: #f8fafb; min-width: 0; }
+.app-final-review-grid dt { color: var(--app-muted); font-size: 14px; font-weight: 700; }
+.app-final-review-grid dd { margin: 5px 0 0; color: var(--app-ink); font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
 @media (max-width: 900px) {
   .app-layout { grid-template-columns: 220px minmax(0, 1fr); }
   .app-sidebar { padding: 28px 20px; }
@@ -109,5 +115,6 @@
   .app-step-count { display: none; }
   .app-shell .btn { padding: 12px 15px; font-size: 15px; }
   .app-complete-actions { flex-direction: column; align-items: stretch; }
+  .app-final-review-grid { grid-template-columns: 1fr; }
 }
 
