@@ -6,7 +6,8 @@
   "description": "RRC leasing and careers website with an optional server-side recruitment email service.",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test ../tests/*.mjs"
+    "test": "node --test ../tests/*.mjs",
+    "smtp:check": "node --env-file=.env.production smtp-check.mjs"
   },
   "engines": {
     "node": ">=20"

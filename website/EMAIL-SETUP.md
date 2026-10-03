@@ -23,6 +23,8 @@ Store the following in the hosting platform's server-side secret/environment set
 
 Use Node.js 20 or later. Before activation, run `npm install --omit=dev` in the website directory, then `npm start` with the environment supplied by the host. The package pins Nodemailer 10.0.11, whose declared runtime is Node 20+. [Official npm package](https://www.npmjs.com/package/nodemailer).
 
+To check the SMTP connection and authentication without sending an email, run `npm run smtp:check` from `website/`. It reports only the safe error category, SMTP response code, and command; it never prints credentials or sends a message.
+
 The package is loaded only when sending is explicitly enabled and configuration is complete. Without it, the server still runs and reports recruitment as unavailable. No SMTP call occurs on startup or on a status check. An enabled status means configuration and the library are present; it does **not** verify credentials or prove inbox delivery. Customer confirmations are a separate explicit opt-in and are sent only after the corresponding staff mailbox accepts the original message.
 
 ## What is implemented
