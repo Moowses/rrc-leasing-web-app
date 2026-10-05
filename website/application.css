@@ -1,4 +1,11 @@
 .app-shell { --app-ink: #243746; --app-muted: #536473; --app-line: #dce4e7; --app-blue: #113b6a; color: var(--app-ink); width: min(1180px, 100%); margin: 0 auto; }
+.resubmission-page { background: #f5f8fa; }
+.resubmission-header { position: static; background: #fff; border-bottom: 1px solid #dce4e7; }
+.resubmission-header__inner { width: min(1180px, calc(100% - 48px)); min-height: 76px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.resubmission-brand { display: inline-flex; align-items: center; }
+.resubmission-brand img { display: block; width: 112px; height: 52px; object-fit: contain; }
+.resubmission-header__inner > span { color: #536473; font-size: 15px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.resubmission-main { padding: 48px 0 72px; }
 .app-shell *, .app-shell *::before, .app-shell *::after { box-sizing: border-box; }
 .app-preview-banner { padding: 17px 23px; background: #fff4dc; border: 1px solid #ecd29a; border-radius: 8px; color: #654618; font-size: 17px; line-height: 1.65; margin-bottom: 28px; }
 .app-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); border: 1px solid var(--app-line); border-radius: 14px; overflow: hidden; background: #fff; }
@@ -98,6 +105,10 @@
   .app-content .form-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
+  .resubmission-header__inner { width: min(100% - 32px, 1180px); min-height: 64px; }
+  .resubmission-brand img { width: 90px; height: 42px; }
+  .resubmission-header__inner > span { font-size: 12px; letter-spacing: .05em; }
+  .resubmission-main { padding: 24px 0 40px; }
   .app-preview-banner { padding: 15px 17px; margin-bottom: 18px; font-size: 15px; }
   .app-layout { display: block; }
   .app-sidebar { padding: 20px; border-right: 0; border-bottom: 1px solid var(--app-line); }

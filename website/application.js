@@ -24,6 +24,8 @@
     const prefix = `rrc-application-${++instanceSequence}`;
     let step = 0;
     let completed = false;
+    let submittedDocumentCount = 0;
+    let documentAttachmentMismatch = false;
     let destroyed = false;
     let fileSequence = 0;
     let documentMessage = '';
@@ -126,8 +128,8 @@
       html += summarySection('Tenancy details', 2, commercial ? [
         ['Proposed use', values.intendedUse === 'Other' ? values.otherIntendedUse : values.intendedUse], ['Required floor area', values.requiredArea ? `${values.requiredArea} sqm` : ''], ['Operating hours', values.operatingHours], ['Employees on site', values.employeeCount], ['Power', values.power], ['Water', values.water], ['Parking', values.commercialParking], ['Signage', values.signage], ['Fit-out', values.fitOut === 'yes' ? values.fitOutDetails : values.fitOut === 'discuss' ? 'To be discussed' : 'No'], ['Additional notes', values.notes]
       ] : [['Adults', values.adultCount], ['Children', values.childCount], ['Pets', values.pets === 'yes' ? values.petDetails : 'No'], ['Parking', values.parking === 'yes' ? `${values.parkingCount} space(s) requested` : 'Not requested'], ['Emergency contact', values.emergencyName], ['Relationship', values.emergencyRelationship], ['Emergency mobile', values.emergencyMobile], ['Additional notes', values.notes]]);
-      html += summarySection('Sample documents', 3, files.length ? files.map(file => [documentKinds().find(kind => kind.key === file.kind)?.title || 'Supporting document', `${file.name} (${fileSize(file.size)})`]) : [['Files', 'No sample files selected']]);
-      html += `<section class="app-review-section"><h3>Review and consent</h3><p class="app-supporting">Your application is recorded for the RRC leasing team. Supporting files are not uploaded in this phase; RRC may request them later.</p>
+      html += summarySection('Attached documents', 3, files.length ? files.map(file => [documentKinds().find(kind => kind.key === file.kind)?.title || 'Supporting document', `${file.name} (${fileSize(file.size)}) · ${file.status === 'uploaded' ? 'Uploaded securely' : file.status === 'uploading' ? 'Uploading' : 'Needs retry'}`]) : [['Files', 'No documents attached']]);
+      html += `<section class="app-review-section"><h3>Review and consent</h3><p class="app-supporting">Your application and any uploaded documents will be recorded for the RRC leasing team. You can return to the document step to add or remove files before submitting.</p>
         <div class="app-check-field"><input type="checkbox" id="${id('accuracy')}" data-field="accuracy" ${values.accuracy ? 'checked' : ''} ${errors.accuracy ? `aria-invalid="true" aria-describedby="${id('accuracy')}-error"` : ''}><label for="${id('accuracy')}">I confirm the information above is accurate to the best of my knowledge.</label>${errorFor('accuracy')}</div>
         <div class="app-check-field"><input type="checkbox" id="${id('previewAcknowledgement')}" data-field="previewAcknowledgement" ${values.previewAcknowledgement ? 'checked' : ''} ${errors.previewAcknowledgement ? `aria-invalid="true" aria-describedby="${id('previewAcknowledgement')}-error"` : ''}><label for="${id('previewAcknowledgement')}">I agree that RRC may use these details to review my leasing application and contact me about it.</label>${errorFor('previewAcknowledgement')}</div>
         <div class="form-grid">${field('typedName', 'Type your full name', { required: true, full: true, help: 'This is not an electronic lease signature.' })}</div></section>`;
@@ -140,13 +142,13 @@
 
     function render(focusHeading) {
       if (destroyed) return;
-      const content = completed ? `<div class="app-complete"><span class="app-complete-mark" aria-hidden="true">✓</span><p class="app-eyebrow">Application received</p><h1 id="${id('title')}" tabindex="-1">Your application is with RRC.</h1><p>Your application has been recorded for the leasing team. It does not reserve the property or create a lease agreement.</p><p class="app-supporting">RRC will contact you using the details you provided. Supporting documents are not uploaded in this phase.</p><div class="app-complete-actions"><button type="button" class="btn btn-primary" data-action="back-property">Return to the property</button><button type="button" class="btn btn-secondary" data-action="restart">Start another application</button></div></div>` : `
+      const content = completed ? `<div class="app-complete"><span class="app-complete-mark" aria-hidden="true">✓</span><p class="app-eyebrow">Application received</p><h1 id="${id('title')}" tabindex="-1">Your application is with RRC.</h1><p>Your application has been recorded for the leasing team. It does not reserve the property or create a lease agreement.</p><p class="app-supporting">${documentAttachmentMismatch ? 'Your application was received, but the document count could not be confirmed. Please contact RRC Leasing and do not submit a duplicate application.' : submittedDocumentCount ? `${submittedDocumentCount} supporting ${submittedDocumentCount === 1 ? 'document has' : 'documents have'} been attached to this application.` : 'No supporting documents were attached to this application.'} RRC will contact you using the details you provided.</p><div class="app-complete-actions"><button type="button" class="btn btn-primary" data-action="back-property">Return to the property</button><button type="button" class="btn btn-secondary" data-action="restart">Start another application</button></div></div>` : `
         <p class="app-eyebrow">${commercial ? 'Commercial' : 'Residential'} application · Step ${step + 1} of 5</p>
         <h1 id="${id('title')}" tabindex="-1">${sectionTitle()}</h1>
         <p class="app-required-note">Fields marked <span aria-hidden="true">*</span><span class="app-sr-only">with an asterisk</span> are required to continue this preview.</p>
         ${Object.keys(errors).length || submissionError ? `<div class="error app-error-summary" role="alert" tabindex="-1">${esc(submissionError || 'Please check the highlighted fields before continuing.')}</div>` : ''}
         <form novalidate aria-labelledby="${id('title')}">${[leaseFields, applicantFields, detailFields, documentFields, reviewFields][step]()}<div class="app-form-actions"><button type="button" class="btn btn-secondary" data-action="previous">${step === 0 ? 'Back to property' : 'Back'}</button><span class="app-step-count">${step + 1} / 5</span><button type="submit" class="btn btn-primary">${step === 4 ? 'Review and send application' : 'Continue'}${step === 4 ? '' : ' <span aria-hidden="true">→</span>'}</button></div></form>`;
-      container.innerHTML = `<section class="app-shell" aria-label="Tenant application"><div class="app-preview-banner" role="note"><strong>Application intake is in development.</strong> Your request is recorded for the RRC leasing team. Supporting files are not uploaded in this phase.${draftRestored&&!completed?' Your saved draft has been restored for this browser session.':''}</div><div class="app-layout"><aside class="app-sidebar"><button type="button" class="app-back-link" data-action="back-property"><span aria-hidden="true">←</span> Property details</button><p class="app-eyebrow">Your selected space</p><h2>${esc(property.title || 'RRC property')}</h2><p class="app-property-location">${esc(property.area || '')}</p><span class="app-type-label">${commercial ? 'Commercial' : 'Residential'}</span><ol class="steps" aria-label="Application steps">${stepNames.map((name, index) => `<li class="${!completed && index === step ? 'is-current' : index < step || completed ? 'is-done' : ''}" ${!completed && index === step ? 'aria-current="step"' : ''}><span class="app-step-number" aria-hidden="true">${index < step || completed ? '✓' : index + 1}</span>${index < step && !completed ? `<button type="button" data-action="edit" data-step="${index}">${name}</button>` : `<span>${name}</span>`}</li>`).join('')}</ol><p class="app-sidebar-note">A few clear steps.<br>Review before submitting.<br>You can go back and edit.</p></aside><div class="app-content">${content}</div></div></section>`;
+      container.innerHTML = `<section class="app-shell" aria-label="Tenant application"><div class="app-preview-banner" role="note"><strong>Secure application intake.</strong> Your application is sent to the RRC leasing team for review. Any document marked “Uploaded securely” will be attached to the application.${draftRestored&&!completed?' Your saved draft has been restored for this browser session.':''}</div><div class="app-layout"><aside class="app-sidebar"><button type="button" class="app-back-link" data-action="back-property"><span aria-hidden="true">←</span> Property details</button><p class="app-eyebrow">Your selected space</p><h2>${esc(property.title || 'RRC property')}</h2><p class="app-property-location">${esc(property.area || '')}</p><span class="app-type-label">${commercial ? 'Commercial' : 'Residential'}</span><ol class="steps" aria-label="Application steps">${stepNames.map((name, index) => `<li class="${!completed && index === step ? 'is-current' : index < step || completed ? 'is-done' : ''}" ${!completed && index === step ? 'aria-current="step"' : ''}><span class="app-step-number" aria-hidden="true">${index < step || completed ? '✓' : index + 1}</span>${index < step && !completed ? `<button type="button" data-action="edit" data-step="${index}">${name}</button>` : `<span>${name}</span>`}</li>`).join('')}</ol><p class="app-sidebar-note">A few clear steps.<br>Review before submitting.<br>You can go back and edit.</p></aside><div class="app-content">${content}</div></div></section>`;
       if (focusHeading) container.querySelector(`#${id('title')}`)?.focus({ preventScroll: true });
     }
 
@@ -289,6 +291,9 @@
       try {
         const result = await config.submit({ type: 'APPLICATION', propertyReference: property.id, contactName: values.fullName, email: values.email, phone: values.mobile, notes: summary.slice(0, 4000), details: { ...values }, uploadToken: uploadToken || undefined, consent: true });
         if (result?.ok !== true) throw new Error(result?.error || 'Your application could not be submitted.');
+        const expectedDocumentCount = files.filter(file => file.status === 'uploaded').length;
+        submittedDocumentCount = Number(result.documents) || 0;
+        documentAttachmentMismatch = expectedDocumentCount > 0 && submittedDocumentCount !== expectedDocumentCount;
       } catch (error) {
         submissionError = error instanceof Error ? error.message : 'Your application could not be submitted.';
         render(false);
@@ -403,7 +408,7 @@
         case 'remove-file': {
           const index = files.findIndex(file => file.id === Number(button.dataset.file));
           if (index >= 0) files.splice(index, 1);
-          documentMessage = `${files.length} of ${maxFiles} sample files selected.`;
+          documentMessage = `${files.length} of ${maxFiles} documents attached.`;
           saveDraft();
           render(false);
           container.querySelector('input[type="file"]')?.focus();
@@ -411,6 +416,8 @@
         }
         case 'restart':
           completed = false;
+          submittedDocumentCount = 0;
+          documentAttachmentMismatch = false;
           files.length = 0;
           fileSequence = 0;
           Object.assign(values, initialValues);
