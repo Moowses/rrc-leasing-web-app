@@ -30,6 +30,7 @@
     let submissionError = '';
     let errors = {};
     let finalReviewConfirmed = false;
+    let uploadToken = '';
     const files = [];
     const initialValues = {
       moveIn: '', leaseTerm: '', otherLeaseTerm: '', fullName: '', mobile: '', email: '', alternateMobile: '',
@@ -105,11 +106,11 @@
     }
 
     function documentFields() {
-      return `<p class="app-supporting">Explore the document step using sample files. Uploads are optional in this preview; RRC will confirm the documents needed for an actual application.</p>
-        <div class="note app-inline-note">PDF, JPG or PNG · Up to 10 MB per file · Maximum 5 files total. Files are not uploaded. Only their names, sizes and categories are kept in memory while this preview is open.</div>
-        <div class="app-document-status" role="status" aria-live="polite">${esc(documentMessage || `${files.length} of ${maxFiles} sample files selected.`)}</div>
-        <div class="app-document-grid">${documentKinds().map(kind => `<section class="app-document-card" aria-labelledby="${id(kind.key)}-title"><h3 id="${id(kind.key)}-title">${esc(kind.title)}</h3><p>${esc(kind.detail)}</p><label class="app-file-label" for="${id(`file-${kind.key}`)}">Choose sample files</label><input type="file" id="${id(`file-${kind.key}`)}" data-document="${kind.key}" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple aria-describedby="${id('file-guidance')}" ${files.length >= maxFiles ? 'disabled' : ''}>${files.filter(file => file.kind === kind.key).length ? `<ul class="app-file-list">${files.filter(file => file.kind === kind.key).map(file => `<li><span><strong>${esc(file.name)}</strong><small>${esc(fileSize(file.size))}</small></span><button type="button" class="app-text-button" data-action="remove-file" data-file="${file.id}" aria-label="Remove ${esc(file.name)}">Remove</button></li>`).join('')}</ul>` : '<p class="app-file-empty">No sample file selected</p>'}</section>`).join('')}</div>
-        <p id="${id('file-guidance')}" class="app-supporting">Do not select real IDs, payslips or confidential company records. Sample files are enough to try this step.</p>`;
+      return `<p class="app-supporting">Add supporting documents if you have them ready. Each file is uploaded securely as soon as you select it and stays attached while you complete the application.</p>
+        <div class="note app-inline-note">PDF, JPG or PNG · Up to 5 MB per file · Maximum 5 files total. Do not close this application while a file says “Uploading”.</div>
+        <div class="app-document-status" role="status" aria-live="polite">${esc(documentMessage || `${files.length} of ${maxFiles} documents attached.`)}</div>
+        <div class="app-document-grid">${documentKinds().map(kind => `<section class="app-document-card" aria-labelledby="${id(kind.key)}-title"><h3 id="${id(kind.key)}-title">${esc(kind.title)}</h3><p>${esc(kind.detail)}</p><label class="app-file-label" for="${id(`file-${kind.key}`)}">Add documents</label><input type="file" id="${id(`file-${kind.key}`)}" data-document="${kind.key}" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple aria-describedby="${id('file-guidance')}" ${files.length >= maxFiles ? 'disabled' : ''}>${files.filter(file => file.kind === kind.key).length ? `<ul class="app-file-list">${files.filter(file => file.kind === kind.key).map(file => `<li><span><strong>${esc(file.name)}</strong><small>${esc(fileSize(file.size))} · ${file.status === 'uploaded' ? 'Uploaded securely' : file.status === 'uploading' ? 'Uploading…' : 'Upload needs retry'}</small></span>${file.status === 'uploading' ? '<span class="app-file-state">Uploading…</span>' : `<button type="button" class="app-text-button" data-action="remove-file" data-file="${file.id}" aria-label="Remove ${esc(file.name)}">Remove</button>`}</li>`).join('')}</ul>` : '<p class="app-file-empty">No document attached</p>'}</section>`).join('')}</div>
+        <p id="${id('file-guidance')}" class="app-supporting">Files remain private to RRC Leasing and are available to the staff member reviewing your application.</p>`;
     }
 
     function summarySection(title, targetStep, items) {
@@ -265,6 +266,12 @@
         if (showFinalReview(event.target)) return;
         finalReviewConfirmed = true;
       }
+      if (typeof config.submit === 'function' && files.some(file => file.status !== 'uploaded')) {
+        submissionError = 'Wait for every selected document to finish uploading, or remove the document before sending.';
+        render(false);
+        container.querySelector('.app-error-summary')?.focus();
+        return;
+      }
       const summary = commercial
         ? `Preferred occupancy: ${values.moveIn}; requested term: ${values.leaseTerm === 'other' ? values.otherLeaseTerm : `${values.leaseTerm} months`}; business: ${values.businessName}; proposed use: ${values.intendedUse === 'Other' ? values.otherIntendedUse : values.intendedUse}; operating hours: ${values.operatingHours}; notes: ${values.notes}`
         : `Preferred move-in: ${values.moveIn}; requested term: ${values.leaseTerm === 'other' ? values.otherLeaseTerm : `${values.leaseTerm} months`}; adults: ${values.adultCount}; children: ${values.childCount}; pets: ${values.pets === 'yes' ? values.petDetails : 'No'}; parking: ${values.parking === 'yes' ? values.parkingCount : 'No'}; notes: ${values.notes}`;
@@ -280,7 +287,7 @@
         return;
       }
       try {
-        const result = await config.submit({ type: 'APPLICATION', propertyReference: property.id, contactName: values.fullName, email: values.email, phone: values.mobile, notes: summary.slice(0, 4000), details: { ...values }, consent: true });
+        const result = await config.submit({ type: 'APPLICATION', propertyReference: property.id, contactName: values.fullName, email: values.email, phone: values.mobile, notes: summary.slice(0, 4000), details: { ...values }, uploadToken: uploadToken || undefined, consent: true });
         if (result?.ok !== true) throw new Error(result?.error || 'Your application could not be submitted.');
       } catch (error) {
         submissionError = error instanceof Error ? error.message : 'Your application could not be submitted.';
@@ -314,24 +321,52 @@
       }
     }
 
-    function onChange(event) {
+    function preserveScroll(rendered) {
+      const top = Number(window.scrollY) || 0;
+      rendered();
+      const restore = () => { if (typeof window.scrollTo === 'function') window.scrollTo({ top, behavior: 'auto' }); };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restore); else restore();
+    }
+    function fileData(file) {
+      return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1]); reader.onerror = reject; reader.readAsDataURL(file); });
+    }
+    async function ensureUploadToken() {
+      if (uploadToken) return uploadToken;
+      const response = await fetch('/api/application-drafts', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ propertyReference: property.id }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.token) throw new Error(result.error || 'Could not prepare secure document upload.');
+      uploadToken = result.token;
+      return uploadToken;
+    }
+    async function uploadDocument(file) {
+      try {
+        const token = await ensureUploadToken();
+        const response = await fetch(`/api/application-drafts/${encodeURIComponent(token)}/documents`, { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ kind: file.kind, fileName: file.name, mimeType: file.type, data: await fileData(file.file) }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Could not upload this document.');
+        file.status = 'uploaded'; file.file = undefined; documentMessage = `${file.name} uploaded securely.`;
+      } catch (error) { file.status = 'failed'; file.error = error instanceof Error ? error.message : 'Could not upload this document.'; documentMessage = file.error; }
+      preserveScroll(() => render(false));
+    }
+
+    async function onChange(event) {
       const target = event.target;
       if (target.dataset.document) {
         const notices = [];
         const selected = Array.from(target.files || []);
         for (const file of selected) {
           if (!/\.(pdf|jpe?g|png)$/i.test(file.name) || (file.type && !['application/pdf', 'image/jpeg', 'image/png'].includes(file.type))) { notices.push(`${file.name}: choose a PDF, JPG or PNG file.`); continue; }
-          if (file.size > maxFileBytes) { notices.push(`${file.name}: exceeds 10 MB.`); continue; }
+          if (file.size > 5 * 1024 * 1024) { notices.push(`${file.name}: exceeds 5 MB.`); continue; }
           if (files.length >= maxFiles) { notices.push(`Maximum ${maxFiles} sample files total. Remove a file to add another.`); break; }
           if (files.some(item => item.name === file.name && item.size === file.size && item.kind === target.dataset.document)) { notices.push(`${file.name} is already selected here.`); continue; }
-          files.push({ id: ++fileSequence, kind: target.dataset.document, name: file.name, size: file.size });
+          files.push({ id: ++fileSequence, kind: target.dataset.document, name: file.name, size: file.size, file, status: 'uploading' });
         }
-        // Discard the browser's File references immediately; retain metadata only.
         target.value = '';
-        documentMessage = notices.length ? notices.join(' ') : `${files.length} of ${maxFiles} sample files selected. Nothing has been uploaded.`;
-        render(false);
+        documentMessage = notices.length ? notices.join(' ') : 'Uploading selected documents securely…';
+        preserveScroll(() => render(false));
         container.querySelector('.app-document-status')?.setAttribute('tabindex', '-1');
         container.querySelector('.app-document-status')?.focus({ preventScroll: true });
+        await Promise.all(files.filter(file => file.status === 'uploading').map(uploadDocument));
         return;
       }
       onInput(event);
@@ -349,7 +384,7 @@
       if (key === 'intendedUse' && values.intendedUse !== 'Other') values.otherIntendedUse = '';
       errors = {};
       saveDraft();
-      render(false);
+      preserveScroll(() => render(false));
       container.querySelector(`#${id(key)}`)?.focus({ preventScroll: true });
     }
 

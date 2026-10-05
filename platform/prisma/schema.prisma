@@ -160,8 +160,34 @@ model Property {
   units       Unit[]
   images      PropertyImage[]
   requests    LeasingRequest[]
+  uploadDrafts ApplicationUploadDraft[]
 
   @@index([areaId, type, isPublished])
+}
+
+model ApplicationUploadDraft {
+  id        String                     @id @default(cuid())
+  tokenHash String                     @unique
+  propertyId String
+  property  Property                   @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime                   @default(now())
+  documents ApplicationDraftDocument[]
+
+  @@index([propertyId, expiresAt])
+}
+
+model ApplicationDraftDocument {
+  id          String                 @id @default(cuid())
+  draftId     String
+  draft       ApplicationUploadDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  kind        String
+  fileName    String
+  mimeType    String
+  data        Bytes
+  submittedAt DateTime               @default(now())
+
+  @@index([draftId, kind])
 }
 
 model Unit {

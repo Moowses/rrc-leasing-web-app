@@ -139,6 +139,22 @@ async function forwardLeasingRequest(request, response, platformApiOrigin, reque
   }
 }
 
+async function forwardApplicationDraft(request, response, platformApiOrigin, requestPolicy, route) {
+  const match = route.match(/^\/api\/application-drafts(?:\/([A-Za-z0-9_-]{20,200})\/documents)?$/);
+  if (!match || request.method !== 'POST') return jsonReply(request, response, 405, { error: 'Method not allowed.' }, { Allow: 'POST' });
+  if (!originAllowed(request, requestPolicy) || (request.headers['sec-fetch-site'] && request.headers['sec-fetch-site'] !== 'same-origin')) return jsonReply(request, response, 403, { error: 'Upload documents from this website only.' });
+  try {
+    const documents = Boolean(match[1]);
+    const payload = await readApplication(request, { maxBytes: documents ? 7_100_000 : 12000, description: documents ? 'application document' : 'application upload session', sizeMessage: documents ? 'The document is too large. Use a file no larger than 5 MB.' : 'The request is too large.' });
+    const pathname = documents ? `/api/public/application-drafts/${match[1]}/documents` : '/api/public/application-drafts';
+    const upstream = await fetch(new URL(pathname, platformApiOrigin), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(documents ? 15000 : 8000) });
+    return jsonReply(request, response, upstream.status, await upstream.json().catch(() => ({ error: 'Could not save the application attachment.' })));
+  } catch (error) {
+    const known = error instanceof ApplicationError;
+    return jsonReply(request, response, known ? error.status : 503, { error: known ? error.message : 'Application uploads are temporarily unavailable. Please try again.' });
+  }
+}
+
 async function forwardResubmission(request, response, platformApiOrigin, requestPolicy, route) {
   const match = route.match(/^\/api\/application-resubmission\/([A-Za-z0-9_-]{20,})(?:\/documents)?$/);
   if (!match) return jsonReply(request, response, 404, { error: 'Not found.' });
@@ -212,6 +228,7 @@ export async function createPreviewServer({ directory = siteDirectory, recruitme
       if (request.method !== 'GET' && request.method !== 'HEAD') return reply(request, response, 405, 'Method not allowed.\n', { Allow: 'GET, HEAD' });
       return proxyPlatform(response, platformApiOrigin, `/api/public/images/${route.split('/').pop()}`);
     }
+    if (/^\/api\/application-drafts/.test(route || '')) return forwardApplicationDraft(request, response, platformApiOrigin, requestPolicy, route);
     if (route === '/api/leasing-requests') return forwardLeasingRequest(request, response, platformApiOrigin, requestPolicy, allowViewingAttempt);
     if (/^\/api\/application-resubmission\//.test(route || '')) return forwardResubmission(request, response, platformApiOrigin, requestPolicy, route);
     if (route === '/api/viewing/status') {
