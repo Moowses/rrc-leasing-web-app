@@ -6,29 +6,32 @@ Move the public website and the staff workspace to **Next.js (App Router) with T
 
 This is a frontend migration, not a database rewrite. The current website must remain online while the replacement is built and verified in parallel.
 
-## Design reference
+## J4 Dental Clinic inspiration: organization, actions, services, and rendering
 
-The J4 Dental Clinic project was reviewed as a workflow reference. It is a Laravel Blade/Vite application rather than Next.js, but it demonstrates a useful interaction model:
+The J4 Dental Clinic project was reviewed as an architectural reference. It is a Laravel Blade/Vite application rather than Next.js, but its workflow has the right separation of concerns:
 
-- a clear, persistent multi-step indicator;
-- one stable form step at a time;
-- familiar labelled fields and visible validation;
-- calm navy/white operational surfaces.
+- page actions validate a user request and return a clear result;
+- service operations group related work such as create, update, search, upload, and remove;
+- screens render lists, details, empty states, loading states, and form feedback separately;
+- multi-step forms hold the current step in memory instead of rebuilding the full page on every keystroke.
 
-The RRC implementation will use the same *interaction structure* while preserving RRC’s brand: RRC navy, gold accent, Manrope headings, Source Sans body text, existing logo, and property imagery. It will not reuse J4 Dental Clinic source files, Bootstrap assets, or clinic branding.
+The RRC rewrite will use that same pattern in TypeScript. It will not copy J4 Dental Clinic source, Bootstrap assets, or clinic branding. RRC keeps its existing navy/gold brand, logo, Manrope headings, Source Sans body text, and property-focused design.
 
 ## Target architecture
 
 ```text
 Browser
-  └─ Next.js web app (SSR public pages + client form islands)
+  └─ Next.js web app
+       ├─ Page / route renderers
+       ├─ Client actions and feature services
        └─ HTTPS Node.js API (Fastify + Prisma)
+            ├─ API routes → actions → services → repositories
             └─ PostgreSQL
 ```
 
 - **Next.js**: public listings, property pages, application/resubmission pages, staff workspace UI, route-level loading/error states.
 - **Tailwind CSS**: one token-driven RRC design system; reusable buttons, inputs, cards, modals, table/list layouts, and responsive breakpoints.
-- **Node.js API**: preserve authentication, staff roles, property CRUD, application records, documents, notifications, resubmission links, and email delivery.
+- **Node.js API**: preserve authentication, staff roles, property CRUD, application records, documents, notifications, resubmission links, and email delivery. Each route remains thin and delegates work to an action and a service.
 - **Prisma/PostgreSQL**: keep the existing schema and migrations. Do not duplicate data in Next.js.
 - **File storage**: keep the current database-backed document storage for the first migration release; move to private object storage only as a separately planned hardening project.
 
@@ -36,12 +39,12 @@ Browser
 
 The application will use a stable client-side step controller instead of rebuilding the whole form on field changes.
 
-1. Each step is a single React component with local state.
+1. Each step is a single React component with local state and a dedicated renderer.
 2. Typing updates only that field; it never reloads the route, rebuilds the form, or changes the page scroll.
 3. Step data is persisted only on **Continue**, **Back**, explicit Save, page-hide, and successful file upload.
 4. Conditional fields (for example, fit-out details) expand in place without remounting unrelated inputs.
 5. Selected documents upload independently with visible `Uploading`, `Uploaded`, `Failed`, and retry states.
-6. The final submit response must include the saved document count; the success page displays that exact count.
+6. The final submit action returns a typed receipt including the saved document count; the success renderer displays that exact count.
 7. The admin detail view separates **Application details**, **Documents**, **Activity**, and **Request documents** into stable sections/tabs.
 
 ## Proposed repository layout
@@ -50,12 +53,43 @@ The application will use a stable client-side step controller instead of rebuild
 rrc-leasing-web-app/
   apps/
     web/                 # New Next.js + Tailwind frontend
+      app/               # Route entry points and server rendering
+      features/
+        listings/
+          components/    # Cards, filters, listing editor
+          actions/       # Browser-facing mutations
+          services/      # API clients and feature rules
+          renderers/     # List, details, empty/loading/error states
+        applications/
+          components/    # Stable form steps and document uploader
+          actions/       # submitApplication, uploadDocument, requestResubmission
+          services/      # Draft and request API clients
+          renderers/     # Review, receipt, documents, admin detail views
+        viewings/
+        staff/
+      components/ui/     # Shared Tailwind primitives
     api/                 # Current Fastify/Prisma service, moved without behavior changes
+      routes/            # HTTP wiring only
+      actions/           # Validate and authorize one business operation
+      services/          # Transactions, mail, notifications, files
+      repositories/      # Prisma queries only
+      schemas/           # Zod input/output contracts
   packages/
     contracts/           # Shared Zod schemas and TypeScript API types
     ui/                  # RRC Tailwind components and design tokens
   docs/
     migration/           # API inventory, test cases, rollout runbook
+```
+
+Example request path:
+
+```text
+POST /applications
+  → submitApplicationAction
+  → applicationService.submit
+  → applicationRepository.createWithDocuments
+  → notificationService + operationalMailService
+  → typed receipt returned to the Next.js renderer
 ```
 
 Initially, `platform/` can remain in place as the API package. The folder move should happen only after the Next.js application is working and tested, to avoid unnecessary deployment risk.
@@ -65,6 +99,7 @@ Initially, `platform/` can remain in place as the API package. The folder move s
 ### Phase 0 — Freeze and document the current contract
 
 - Export the current API endpoint list, request/response schemas, authentication rules, and Apache proxy routes.
+- Map every current Fastify handler into its future `route → action → service → repository` ownership before moving code.
 - Add integration tests for: property listing, viewing request, application with documents, staff login, request review, resubmission upload, and all email notifications.
 - Capture current production database backup and verify the restore procedure.
 - Record the present RRC visual tokens and reusable content blocks.
