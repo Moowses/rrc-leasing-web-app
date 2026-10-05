@@ -315,7 +315,6 @@
       if (!key || !Object.prototype.hasOwnProperty.call(values, key)) return;
       finalReviewConfirmed = false;
       values[key] = target.type === 'checkbox' ? target.checked : target.value;
-      saveDraft();
       if (errors[key]) {
         delete errors[key];
         target.removeAttribute('aria-invalid');
@@ -388,6 +387,8 @@
       if (key === 'fitOut' && values.fitOut !== 'yes') values.fitOutDetails = '';
       if (key === 'intendedUse' && values.intendedUse !== 'Other') values.otherIntendedUse = '';
       errors = {};
+      // Conditional controls are the only ones that need to rebuild this step.
+      // Ordinary typing stays in the live DOM until the applicant moves to another step.
       saveDraft();
       preserveScroll(() => render(false));
       container.querySelector(`#${id(key)}`)?.focus({ preventScroll: true });
@@ -432,6 +433,7 @@
     const controller = {
       destroy() {
         if (destroyed) return;
+        if (!completed) saveDraft();
         destroyed = true;
         container.removeEventListener('input', onInput);
         container.removeEventListener('change', onChange);
