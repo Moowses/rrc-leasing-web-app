@@ -7,12 +7,18 @@
 **/node_modules/
 **/dist/
 **/coverage/
+**/.next/
 **/.npm-cache/
+*.tsbuildinfo
+
+# Recoverable historical material from local folder cleanup
+Archive/
 
 # Local runtime data, uploads, logs, and backups
 uploads/
 data/
 backups/
+**/backups/
 *.log
 *.bak
 *.sqlite
@@ -22,8 +28,3 @@ backups/
 # Editor and operating-system files
 .DS_Store
 Thumbs.db
-
-# Local Codex and presentation build artifacts
-.codex-finalizer/
-.ppt-build/*.pptx
-.ppt-build/*.ndjson

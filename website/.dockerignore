@@ -1,8 +1,0 @@
-node_modules
-npm-debug.log*
-.env
-.env.*
-*.log
-tests
-*.md
-Start-RRC-Preview.ps1

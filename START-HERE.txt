@@ -1,23 +1,36 @@
-RRC WEBSITE - IT MANAGER HANDOVER
+RRC WEBSITE — IT HANDOVER
 
-Open IT-HANDOVER.md first.
+Folder guide:
+- Front end — new Next.js + Tailwind site for local testing.
+- Backend — Fastify API, PostgreSQL/Prisma setup, and backend configuration.
+- docs — current database relationships and branding reference.
+- Archive — older website/handover files, presentation tools, and superseded notes.
 
-This package contains the editable website source, local assets and fonts,
-verification scripts, Zoho configuration guidance and the remaining work
-required for public operation.
+To test the new site without automatic code refresh, start PostgreSQL if
+needed, then open two PowerShell windows. Stop any existing app servers with
+Ctrl+C before starting these commands (the ports must be available):
 
-Quick local review:
-1. Install a supported Node.js release meeting the minimum version in package.json (20+).
-2. Open a terminal in the website folder.
-3. Run: node server.mjs
-4. Open http://127.0.0.1:4173 on the same computer.
-5. Keep the terminal open; press Ctrl+C to stop.
+Window 1 — API:
+  cd "D:\RRC-Website-IT-Handover\Backend"
+  npm run preview
 
-No frontend build or package installation is required for the local preview.
-Mail sending is disabled until the mail dependency and private server settings
-are configured. No passwords, mailbox credentials or personal applications
-are included in this package.
+Window 2 — front end:
+  cd "D:\RRC-Website-IT-Handover\Front end"
+  npm run preview
 
-This is not an install-and-go production system. Administrator/CMS functions,
-live tenant intake, verified property content and production hosting still
-require implementation. See IT-HANDOVER.md and website/FINAL-REVIEW.md.
+Open http://localhost:4181. Keep both windows open; press Ctrl+C in each to
+stop its server. The API runs locally on port 4180. Do not expose it publicly.
+
+The preview commands build and run a fixed version of the app. Source-file
+edits take effect after stopping and running preview again. For coding only,
+use npm run dev; that mode deliberately watches files and refreshes on edits.
+
+Read the README.md in Front end and Backend for setup details.
+For Windows Server deployment, follow docs/WINDOWS-DEPLOYMENT.md.
+Database relationships are in docs/DATA-MODEL.md; branding is in docs/BRANDING.md.
+
+The cleanup archive is Archive/2026-10-12-cleanup. Its CONTENTS.json records
+what was moved and why. Archived files can be recovered from that folder.
+
+node_modules, .next, and dist are generated dependencies/build output used
+for local running and builds. Backend/backups contains database backups.

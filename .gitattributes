@@ -1,2 +1,2 @@
-# Auto detect text files and perform LF normalization
+# Preserve the repository's text normalization rules.
 * text=auto
