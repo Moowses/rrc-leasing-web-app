@@ -10,6 +10,17 @@ const config = loadConfig({
   RRC_AUTH_PROVIDER: 'unconfigured',
 });
 
+test('uses forwarded client IP only from a loopback proxy', async t => {
+  const app = buildApp(config);
+  t.after(() => app.close());
+  let address = '';
+  app.addHook('onRequest', (request, _reply, done) => { address = request.ip; done(); });
+  await app.inject({ method: 'GET', url: '/healthz', remoteAddress: '127.0.0.1', headers: { 'x-forwarded-for': '198.51.100.10' } });
+  assert.equal(address, '198.51.100.10');
+  await app.inject({ method: 'GET', url: '/healthz', remoteAddress: '192.0.2.99', headers: { 'x-forwarded-for': '198.51.100.10' } });
+  assert.equal(address, '192.0.2.99');
+});
+
 test('health and readiness endpoints expose no sensitive configuration', async t => {
   const app = buildApp(config);
   t.after(() => app.close());

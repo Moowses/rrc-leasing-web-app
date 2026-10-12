@@ -6,6 +6,15 @@ import type { NextRequest } from 'next/server';
 const imageStyleHash = createHash('sha256').update('color:transparent').digest('base64');
 
 export function proxy(request: NextRequest) {
+  const previousLink = request.nextUrl.pathname.match(/^\/resubmit\/([A-Za-z0-9_-]{32,100})\/?$/);
+  if (previousLink) {
+    const destination = new URL('/resubmit', request.url);
+    destination.hash = previousLink[1];
+    const response = NextResponse.redirect(destination, 307);
+    response.headers.set('Cache-Control', 'private, no-store');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    return response;
+  }
   const nonce = randomBytes(16).toString('base64');
   const development = process.env.NODE_ENV === 'development';
   const policy = [

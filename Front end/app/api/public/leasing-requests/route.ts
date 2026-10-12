@@ -8,9 +8,10 @@ export async function POST(request: Request) {
   if (origin && origin !== url.origin) return NextResponse.json({ error: "Please submit this form from the RRC website." }, { status: 403 });
   try {
     const body = await request.json();
+    const forwardedFor = request.headers.get("x-forwarded-for");
     const upstream = await fetch(`${apiOrigin}/api/public/leasing-requests`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(forwardedFor ? { "X-Forwarded-For": forwardedFor } : {}) },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
       cache: "no-store",
