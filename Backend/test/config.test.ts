@@ -17,3 +17,10 @@ test('loads a safe local development configuration', () => {
 test('rejects origin values with paths', () => {
   assert.throws(() => loadConfig({ ...base, RRC_PLATFORM_ORIGINS: 'https://rrc.example.com/admin' }));
 });
+
+test('preserves the existing server local-password configuration', () => {
+  const config = loadConfig({ ...base, NODE_ENV: 'production', RRC_AUTH_PROVIDER: 'local-password', RRC_PLATFORM_ORIGINS: 'https://rosefoodrealtycorp.com' });
+  assert.equal(config.RRC_AUTH_PROVIDER, 'local-password');
+  assert.equal(config.NODE_ENV, 'production');
+  assert.equal(config.origins.has('https://rosefoodrealtycorp.com'), true);
+});
