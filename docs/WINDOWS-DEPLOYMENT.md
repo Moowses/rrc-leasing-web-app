@@ -1,6 +1,6 @@
 # Windows Server deployment
 
-Release branch: `release/rrc-nextjs-windows` in `https://github.com/Moowses/rrc-leasing-web-app`.
+Deployment branch: `main` in `https://github.com/Moowses/rrc-leasing-web-app`.
 
 This release uses `Front end` (Next.js on loopback port 4181) and `Backend` (Fastify on loopback port 4180). Apache serves the public HTTPS hostname and forwards to Next.js. Use the existing PostgreSQL database and existing server staff accounts. Local laptop accounts, SMTP credentials, `.env` files, dependencies, build output, backups, and `Archive` are not included in Git.
 
@@ -13,7 +13,7 @@ $releaseRoot = 'C:\RRC Web Server\rrc-nextjs-release'
 $nodeExe = 'C:\Program Files\nodejs\node.exe'
 $npmExe = 'C:\Program Files\nodejs\npm.cmd'
 $env:Path = 'C:\Program Files\nodejs;' + $env:Path
-git clone --branch release/rrc-nextjs-windows --single-branch https://github.com/Moowses/rrc-leasing-web-app.git $releaseRoot
+git clone --branch main --single-branch https://github.com/Moowses/rrc-leasing-web-app.git $releaseRoot
 if ($LASTEXITCODE -ne 0) { throw 'Git clone failed.' }
 ```
 
@@ -137,6 +137,31 @@ Set-Location -LiteralPath $backendDir
 That helper activates the specified account, sets the password entered at the prompt, clears that account's existing sessions, and records an audit event. Run it only when the server account needs creation/reset.
 
 Use synthetic details to check a viewing, application with an attachment, review step, applicant/office email, admin notification, and resubmission link after cutover. Check the browser console for blocked CSP resources. The server must run the built services shown above, not `npm run dev`.
+
+## 7. Clean up the previous RRC application after verification
+
+After the new services and public HTTPS site pass step 6, move the old application folder into a recoverable backup. The PostgreSQL database, its storage, Apache installation, certificate renewal tasks, and other hosted sites remain in place. The folder backup also preserves the old private environment files and local changes.
+
+```powershell
+$oldRoot = 'C:\RRC Web Server\rrc-leasing-web-app'
+$oldResolved = [IO.Path]::GetFullPath($oldRoot)
+$releaseResolved = [IO.Path]::GetFullPath($releaseRoot)
+if ($oldResolved -eq $releaseResolved) { throw 'The previous folder is the active release; do not move it.' }
+$rrcTasks = Get-ScheduledTask -TaskName 'RRC Leasing Platform','RRC Leasing Website'
+foreach ($task in $rrcTasks) {
+  foreach ($action in $task.Actions) {
+    if ($action.Arguments -like "*$oldResolved*" -or $action.WorkingDirectory -like "$oldResolved*") {
+      throw 'An RRC task still points to the previous folder. Complete step 4 first.'
+    }
+  }
+}
+$archivePath = 'C:\RRC Web Server\RRC-App-Backup-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+if (-not $oldResolved.StartsWith('C:\RRC Web Server\',[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($oldResolved) -ne 'rrc-leasing-web-app') { throw 'Unexpected previous application path.' }
+if (Test-Path -LiteralPath $archivePath) { throw 'Backup destination already exists.' }
+Move-Item -LiteralPath $oldResolved -Destination $archivePath
+```
+
+Keep this backup until the new installation is accepted. In GitHub Desktop, add the new release checkout as the current repository after archiving the previous checkout. No database/account reset is part of this cleanup.
 
 ## Rollback
 
