@@ -41,6 +41,35 @@ At deployment time the development laptop's Ethernet adapter used public DNS, re
 
 The user chose to leave laptop DNS unchanged. No hosts-file override, certificate bypass, or router change was applied. Normal domain access from that laptop therefore remains a network-routing limitation, separate from the verified server deployment. Browser UI sign-in on the live hostname was not tested through that blocked route.
 
+## Deploy the property page and photo upload update
+
+This update changes both the website and API. It does not change the database schema, application dependencies, Apache, or pfSense. Run this in PowerShell as Administrator on the Windows server. It assumes the existing scheduled-task installation and its installed dependencies.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$rrcRoot = 'C:\RRC Web Server\rrc-leasing-web-app'
+$rrcGit = 'C:\Program Files\Git\cmd\git.exe'
+$rrcNpm = 'C:\Program Files\nodejs\npm.cmd'
+Set-Location -LiteralPath $rrcRoot
+if ((& $rrcGit branch --show-current) -ne 'main') { throw 'The server checkout must be on main.' }
+if (& $rrcGit status --porcelain) { throw 'Check the local changes before deploying.' }
+& $rrcGit pull --ff-only origin main
+if ($LASTEXITCODE -ne 0) { throw 'Could not pull the update.' }
+
+Stop-ScheduledTask -TaskName 'RRC Leasing Website'
+Stop-ScheduledTask -TaskName 'RRC Leasing Platform'
+Set-Location -LiteralPath (Join-Path $rrcRoot 'Backend')
+& $rrcNpm run build
+if ($LASTEXITCODE -ne 0) { throw 'API build failed.' }
+Set-Location -LiteralPath (Join-Path $rrcRoot 'Front end')
+& $rrcNpm run build -- --webpack
+if ($LASTEXITCODE -ne 0) { throw 'Website build failed.' }
+Start-ScheduledTask -TaskName 'RRC Leasing Platform'
+Start-ScheduledTask -TaskName 'RRC Leasing Website'
+```
+
+After both tasks are running, open [C-001](https://rosefoodrealtycorp.com/properties/C-001) and check its cover photo. In the staff dashboard, open **Content & listings → C-001 → Edit**. To add real photos, select them under **Gallery photos**, click **Save listing**, then reopen the editor and the public property page. The deployment does not add any test photos to the live listing.
+
 ## Restart and health checks
 
 Run PowerShell as Administrator on the server. There is no `Restart-ScheduledTask` cmdlet; stop and start the tasks explicitly:

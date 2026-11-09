@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
-import type { Listing } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import type { Listing, ListingPhoto } from "@/lib/types";
+import PropertyPhoto from "@/components/PropertyPhoto";
 
 type Staff = { displayName: string; email: string; role: string };
 type RequestItem = { id: string; type: string; status: string; contactName: string; email: string; phone?: string; requestedAt: string; notes?: string; applicationData?: Record<string, unknown>; property: { reference: string; name: string; type: string; area: { name: string; city: string } }; unit?: { name: string; monthlyRent?: string }; documents: { id: string; kind: string; fileName: string; submittedAt: string }[] };
@@ -50,34 +51,142 @@ function Login({ onSignedIn }: { onSignedIn: (staff: Staff) => void }) {
   return <main className="login-page"><form className="login-card" onSubmit={submit}><Brand /><p className="eyebrow">Staff access</p><h1>Welcome back</h1><p>Sign in to manage properties, leasing requests, and notifications.</p>{error && <div className="form-error" role="alert">{error}</div>}<div className="field"><label htmlFor="staff-email">Email</label><input id="staff-email" type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></div><div className="field"><label htmlFor="staff-password">Password</label><input id="staff-password" type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></div><button className="btn btn-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in to Operations"}</button><small>Authorized RRC staff only. Contact the Super Admin for access.</small></form></main>;
 }
 
+const photoTypes = "image/jpeg,image/png,image/webp";
+type PendingGalleryPhoto = { id: string; file: File };
+
+function adminPhotoPath(photo: ListingPhoto) {
+  return `${platform}/api/admin/property-images/${encodeURIComponent(photo.id)}`;
+}
+
+function validatePhoto(file: File) {
+  if (!photoTypes.split(",").includes(file.type) || file.size < 32 || file.size > 5 * 1024 * 1024)
+    throw new Error(`${file.name}: choose a JPG, PNG or WebP image no larger than 5 MB.`);
+}
+
+function readPhoto(file: File) {
+  validatePhoto(file);
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    reader.readAsDataURL(file);
+  });
+}
+
+function PendingPhoto({ file }: { file: File }) {
+  const [src, setSrc] = useState("");
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setSrc(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  return src ? <PropertyPhoto src={src} alt={`Preview of ${file.name}`} eager /> : <div className="property-photo-fallback">Preparing preview…</div>;
+}
+
 function ListingEditor({ listing, onClose, onSaved, notify }: { listing?: Listing; onClose: () => void; onSaved: () => void; notify: (value: string) => void }) {
-  const [busy, setBusy] = useState(false); const [error, setError] = useState("");
-  const [cover, setCover] = useState<File | null>(null); const [coverPreview, setCoverPreview] = useState("");
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]); const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]); const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const existing = listing as (Listing & { address?: string; images?: { id?: string; url: string; alt?: string; isCover?: boolean }[] }) | undefined;
-  useEffect(() => { const urls = galleryFiles.map(file => URL.createObjectURL(file)); setGalleryPreviews(urls); return () => urls.forEach(url => URL.revokeObjectURL(url)); }, [galleryFiles]);
-  useEffect(() => { if (!cover) { setCoverPreview(""); return; } const url = URL.createObjectURL(cover); setCoverPreview(url); return () => URL.revokeObjectURL(url); }, [cover]);
-  async function removeImage(image: { id?: string; isCover?: boolean }) { if (!image.id || image.isCover || !listing) return; try { await jsonRequest(`/api/admin/properties/${encodeURIComponent(listing.id)}/images/${encodeURIComponent(image.id)}`, { method: "DELETE" }); setRemovedImages(current => [...current, image.id!]); notify("Gallery photo removed."); } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not remove that photo."); } }
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); setError("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [selectionError, setSelectionError] = useState("");
+  const [progress, setProgress] = useState("");
+  const [savedReference, setSavedReference] = useState(listing?.id || "");
+  const [cover, setCover] = useState<File | null>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
+  const initialCover = listing?.images?.find(image => image.isCover) ?? listing?.images?.[0];
+  const [savedCover, setSavedCover] = useState(initialCover);
+  const [savedGallery, setSavedGallery] = useState(() => listing?.images?.filter(image => !image.isCover && image.id !== initialCover?.id) || []);
+  const [gallery, setGallery] = useState<PendingGalleryPhoto[]>([]);
+
+  function selectGallery(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = "";
+    setSelectionError("");
+    if (!files.length) return;
     try {
-      setBusy(true);
-      const image = cover ? await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] || ""); reader.onerror = () => reject(new Error("Could not read the cover image.")); reader.readAsDataURL(cover); }) : "";
-      const body = { reference: String(form.get("reference") || ""), name: String(form.get("name") || ""), unitName: String(form.get("unitName") || ""), type: String(form.get("type") || "COMMERCIAL"), listingKind: String(form.get("listingKind") || "Retail"), floorLabel: String(form.get("floorLabel") || "Ground floor"), address: String(form.get("address") || ""), area: String(form.get("area") || ""), city: String(form.get("city") || "Davao City"), monthlyRent: Number(form.get("monthlyRent") || 0), floorAreaSqm: Number(form.get("floorAreaSqm") || 0), availability: String(form.get("availability") || "AVAILABLE"), publish: form.get("publish") === "on", imageData: image || undefined, imageType: cover?.type, imageAlt: String(form.get("imageAlt") || `${form.get("unitName")} property photo`) };
-      const path = listing ? `/api/admin/properties/${encodeURIComponent(listing.id)}` : "/api/admin/properties";
-      await jsonRequest(path, { method: listing ? "PUT" : "POST", body: JSON.stringify(body) });
-      const gallery = galleryFiles;
-      for (const file of gallery.slice(0, 9)) {
-        if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 5 * 1024 * 1024) throw new Error("Gallery images must be JPG, PNG, or WebP, up to 5 MB each.");
-        const data = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(",")[1] || ""); reader.onerror = () => reject(new Error("Could not read a gallery image.")); reader.readAsDataURL(file); });
-        await jsonRequest(`/api/admin/properties/${encodeURIComponent(body.reference)}/images`, { method: "POST", body: JSON.stringify({ imageData: data, imageType: file.type, imageAlt: String(form.get("imageAlt") || `${body.unitName} gallery photo`) }) });
-      }
-      notify("Listing saved. The public catalogue will refresh shortly."); onSaved(); onClose();
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "The listing could not be saved."); }
-    finally { setBusy(false); }
+      for (const file of files) validatePhoto(file);
+      if (savedGallery.length + gallery.length + files.length > 9) throw new Error("You can save up to nine gallery photos. Select fewer files or remove a photo first.");
+      const pending = files.map(file => ({ file, id: crypto.randomUUID() }));
+      setGallery(current => [...current, ...pending]);
+    } catch (cause) {
+      setSelectionError(cause instanceof Error ? cause.message : "Could not select those photos.");
+    }
   }
-  return <div className="overlay"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="editor-title"><header className="modal-header"><h2 id="editor-title">{listing ? "Edit listing" : "Add a listing"}</h2><button type="button" className="icon-button" aria-label="Close listing editor" onClick={onClose}>×</button></header><form className="modal-body" onSubmit={submit}>{error && <div className="form-error" role="alert">{error}</div>}<div className="form-grid">
-    <div className="field"><label htmlFor="listing-reference">Reference *</label><input id="listing-reference" name="reference" required pattern="[A-Z]-[0-9]{3}" placeholder="C-103" defaultValue={listing?.id || ""} disabled={Boolean(listing)} /></div>
+
+  async function removeImage(image: ListingPhoto) {
+    if (!savedReference || image.isCover || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await jsonRequest(`/api/admin/properties/${encodeURIComponent(savedReference)}/images/${encodeURIComponent(image.id)}`, { method: "DELETE" });
+      setSavedGallery(current => current.filter(photo => photo.id !== image.id));
+      setSelectionError("");
+      notify("Gallery photo removed.");
+      onSaved();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not remove that photo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const form = new FormData(event.currentTarget);
+    const reference = savedReference || String(form.get("reference") || "").trim();
+    const propertyPath = `/api/admin/properties/${encodeURIComponent(reference)}`;
+    let detailsSaved = false;
+    setBusy(true);
+    setError("");
+    setProgress("Saving listing details…");
+    try {
+      if (!/^[A-Z]-\d{3}$/.test(reference)) throw new Error("Enter a listing reference such as C-001.");
+      const imageData = cover ? await readPhoto(cover) : undefined;
+      const body = {
+        reference, name: String(form.get("name") || ""), unitName: String(form.get("unitName") || ""),
+        type: String(form.get("type") || "COMMERCIAL"), listingKind: String(form.get("listingKind") || "Retail"),
+        floorLabel: String(form.get("floorLabel") || "Ground floor"), address: String(form.get("address") || ""),
+        area: String(form.get("area") || ""), city: String(form.get("city") || "Davao City"),
+        monthlyRent: Number(form.get("monthlyRent") || 0), floorAreaSqm: Number(form.get("floorAreaSqm") || 0),
+        availability: String(form.get("availability") || "AVAILABLE"), publish: form.get("publish") === "on",
+        imageData, imageType: cover?.type, imageAlt: String(form.get("imageAlt") || "RRC property listing photo"),
+      };
+      const result = await jsonRequest(savedReference ? propertyPath : "/api/admin/properties", { method: savedReference ? "PUT" : "POST", body: JSON.stringify(body) });
+      detailsSaved = true;
+      setSavedReference(reference);
+      if (result.cover) setSavedCover(result.cover);
+      setCover(null);
+      if (coverInput.current) coverInput.current.value = "";
+      for (const [index, { file, id }] of gallery.entries()) {
+        setProgress(`Uploading photo ${index + 1} of ${gallery.length}: ${file.name}`);
+        try {
+          const uploaded = await jsonRequest(`${propertyPath}/images`, { method: "POST", body: JSON.stringify({
+            uploadId: id, imageData: await readPhoto(file), imageType: file.type, imageAlt: `${body.unitName} · gallery photo`.slice(0, 180),
+          }) });
+          if (!uploaded.image?.id) throw new Error("The server did not confirm the saved photo.");
+          setSavedGallery(current => current.some(photo => photo.id === uploaded.image.id) ? current : [...current, uploaded.image]);
+          setGallery(current => current.filter(item => item.id !== id));
+        } catch (cause) {
+          throw new Error(`${file.name}: ${cause instanceof Error ? cause.message : "Upload failed."}`);
+        }
+      }
+      notify(gallery.length ? `Listing and ${gallery.length} gallery photo${gallery.length === 1 ? "" : "s"} saved.` : "Listing saved.");
+      onClose();
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "The listing could not be saved.";
+      setError(detailsSaved ? `Listing details were saved. ${message} Click Save listing again to retry the remaining photos.` : message);
+    } finally {
+      if (detailsSaved) onSaved();
+      setProgress("");
+      setBusy(false);
+    }
+  }
+
+  return <div className="overlay"><section className="modal" role="dialog" aria-modal="true" aria-labelledby="editor-title">
+    <header className="modal-header"><h2 id="editor-title">{savedReference ? "Edit listing" : "Add a listing"}</h2><button type="button" className="icon-button" aria-label="Close listing editor" onClick={onClose} disabled={busy}>×</button></header>
+    <form className="modal-body" onSubmit={submit}>
+      {error && <div className="form-error" role="alert">{error}</div>}
+      <fieldset className="form-grid editor-fields" disabled={busy}>
+    <div className="field"><label htmlFor="listing-reference">Reference *</label><input id="listing-reference" name="reference" required pattern="[A-Z]-[0-9]{3}" placeholder="C-103" defaultValue={listing?.id || ""} readOnly={Boolean(savedReference)} /></div>
     <div className="field"><label htmlFor="listing-name">Property / building name *</label><input id="listing-name" name="name" required minLength={3} defaultValue={listing?.name || ""} /></div>
     <div className="field"><label htmlFor="listing-title">Listing title *</label><input id="listing-title" name="unitName" required minLength={3} defaultValue={listing?.title || ""} /></div>
     <div className="field"><label htmlFor="listing-kind">Space type *</label><input id="listing-kind" name="listingKind" required defaultValue={listing?.kind || "Retail"} /></div>
@@ -85,15 +194,47 @@ function ListingEditor({ listing, onClose, onSaved, notify }: { listing?: Listin
     <div className="field"><label htmlFor="listing-floor">Floor / level *</label><input id="listing-floor" name="floorLabel" required defaultValue={listing?.floor || "Ground floor"} /></div>
     <div className="field"><label htmlFor="listing-area">Area *</label><input id="listing-area" name="area" required defaultValue={listing?.area || ""} /></div>
     <div className="field"><label htmlFor="listing-city">City *</label><input id="listing-city" name="city" required defaultValue={listing?.city || "Davao City"} /></div>
-    <div className="field full"><label htmlFor="listing-address">Address *</label><input id="listing-address" name="address" required defaultValue={existing?.address || `${listing?.area || ""}, ${listing?.city || "Davao City"}`} /></div>
+    <div className="field full"><label htmlFor="listing-address">Address *</label><input id="listing-address" name="address" required defaultValue={listing?.address || `${listing?.area || ""}, ${listing?.city || "Davao City"}`} /></div>
     <div className="field"><label htmlFor="listing-rent">Monthly rent (PHP) *</label><input id="listing-rent" name="monthlyRent" type="number" min="1" step="1" required defaultValue={listing?.rent || ""} /></div>
     <div className="field"><label htmlFor="listing-size">Floor area (m²) *</label><input id="listing-size" name="floorAreaSqm" type="number" min="1" step="0.1" required defaultValue={listing?.size || ""} /></div>
     <div className="field"><label htmlFor="listing-availability">Availability</label><select id="listing-availability" name="availability" defaultValue={listing?.availability || "AVAILABLE"}>{["AVAILABLE", "UNAVAILABLE", "VIEWING_PENDING", "APPLICATION_PENDING", "RESERVED", "OCCUPIED"].map((value) => <option value={value} key={value}>{value.replaceAll("_", " ")}</option>)}</select></div>
-    <div className="field full"><label htmlFor="listing-cover">Cover image {listing ? "(optional)" : "*"}</label>{existing?.images?.find(image => image.isCover) && !cover && <div className="image-preview cover-preview"><img src={existing.images.find(image => image.isCover)!.url} alt={existing.images.find(image => image.isCover)!.alt || "Current cover image"} /><span>Current cover</span></div>}{coverPreview && <div className="image-preview cover-preview"><img src={coverPreview} alt="Selected cover preview" /><span>New cover selected</span></div>}<input id="listing-cover" type="file" accept="image/jpeg,image/png,image/webp" required={!listing} onChange={(event) => setCover(event.target.files?.[0] || null)} /><small>JPG, PNG or WebP · Up to 5 MB</small></div>
-    <div className="field full"><label htmlFor="listing-gallery">Gallery photos (optional)</label><input id="listing-gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => setGalleryFiles(current => [...current, ...Array.from(event.target.files || [])].slice(0, 9))} /><small>Up to 9 additional images. Review the previews; remove any selected file before saving.</small><div className="image-gallery">{(existing?.images || []).filter(image => !image.isCover && image.id && !removedImages.includes(image.id)).map(image => <figure className="image-preview" key={image.id}><img src={image.url} alt={image.alt || "Listing gallery photo"} /><button type="button" className="image-remove" aria-label="Remove this gallery photo" onClick={() => void removeImage(image)}>×</button><figcaption>Saved photo</figcaption></figure>)}{galleryPreviews.map((url, index) => <figure className="image-preview" key={`${url}-${index}`}><img src={url} alt={`New gallery photo preview ${index + 1}`} /><button type="button" className="image-remove" aria-label={`Remove selected photo ${index + 1}`} onClick={() => setGalleryFiles(current => current.filter((_, fileIndex) => fileIndex !== index))}>×</button><figcaption>{galleryFiles[index]?.name}</figcaption></figure>)}</div></div>
+      <div className="field full">
+        <label htmlFor="listing-cover">Cover image {savedCover ? "(optional replacement)" : "*"}</label>
+        {(cover || savedCover) && <figure className="image-preview cover-preview">
+          {cover ? <PendingPhoto file={cover} /> : <PropertyPhoto key={savedCover?.id} src={adminPhotoPath(savedCover!)} alt={savedCover!.alt || "Current cover image"} eager />}
+          <figcaption>{cover ? "New cover · not yet saved" : "Current cover"}</figcaption>
+        </figure>}
+        <input ref={coverInput} id="listing-cover" type="file" accept={photoTypes} required={!savedCover} onChange={event => setCover(event.target.files?.[0] || null)} />
+        <small>JPG, PNG or WebP · Up to 5 MB</small>
+      </div>
+      <div className="field full">
+        <label htmlFor="listing-gallery">Gallery photos (optional)</label>
+        <input id="listing-gallery" type="file" accept={photoTypes} multiple disabled={savedGallery.length + gallery.length >= 9} onChange={selectGallery} />
+        <small>{savedGallery.length} saved · {gallery.length} to upload · Up to nine gallery photos, 5 MB each.</small>
+        {selectionError && <p className="photo-selection-error" role="alert">{selectionError}</p>}
+        {savedGallery.length + gallery.length > 0 && <div className="image-gallery">
+          {savedGallery.map(image => <figure className="image-preview" key={image.id}>
+            <PropertyPhoto src={adminPhotoPath(image)} alt={image.alt || "Listing gallery photo"} eager />
+            <button type="button" className="image-remove" aria-label={`Remove saved photo ${image.alt || image.id}`} onClick={() => void removeImage(image)}>×</button>
+            <figcaption>Saved gallery photo</figcaption>
+          </figure>)}
+          {gallery.map(({ id, file }) => <figure className="image-preview" key={id}>
+            <PendingPhoto file={file} />
+            <button type="button" className="image-remove" aria-label={`Remove selected photo ${file.name}`} onClick={() => { setGallery(current => current.filter(item => item.id !== id)); setSelectionError(""); }}>×</button>
+            <figcaption>To upload · {file.name}</figcaption>
+          </figure>)}
+        </div>}
+      </div>
     <div className="field full"><label htmlFor="listing-alt">Image description *</label><input id="listing-alt" name="imageAlt" required defaultValue={listing?.imageAlt || "RRC property listing photo"} /></div>
     <label className="check-row field full"><input type="checkbox" name="publish" defaultChecked={listing?.publish ?? false} /><span>Publish this listing on the public website when saved.</span></label>
-  </div><div className="form-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Save listing"}</button></div></form></section></div>;
+      </fieldset>
+      <div className="form-actions">
+        {progress && <p role="status" className="photo-save-progress">{progress}</p>}
+        <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Save listing"}</button>
+      </div>
+    </form>
+  </section></div>;
 }
 
 export default function AdminPage() {

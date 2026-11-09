@@ -10,7 +10,7 @@ export type AuditInput = {
   metadata?: Prisma.InputJsonObject;
 };
 
-export async function recordAuditEvent(database: PrismaClient, input: AuditInput) {
+export async function recordAuditEvent(database: Pick<PrismaClient, 'auditEvent'>, input: AuditInput) {
   const { actorId, metadata, ...event } = input;
   return database.auditEvent.create({
     data: {

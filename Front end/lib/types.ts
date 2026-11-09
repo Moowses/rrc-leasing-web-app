@@ -1,3 +1,5 @@
+export type ListingPhoto = { id: string; url: string; alt: string; isCover: boolean };
+
 export type Listing = {
   id: string;
   name: string;
@@ -14,7 +16,8 @@ export type Listing = {
   status?: "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "ARCHIVED";
   imageUrl: string;
   imageAlt: string;
-  images?: { id?: string; url: string; alt?: string; isCover?: boolean }[];
+  images?: ListingPhoto[];
+  address?: string;
 };
 
 export type ApiFailure = { error?: string };

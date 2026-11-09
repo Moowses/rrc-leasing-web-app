@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import { connection } from "next/server";
 import "./globals.css";
+import "./property-photos.css";
 
 const manrope = localFont({ src: "../public/assets/Manrope.ttf", variable: "--font-manrope", display: "swap" });
 const sourceSans = localFont({ src: "../public/assets/SourceSans3.ttf", variable: "--font-source-sans", display: "swap" });
