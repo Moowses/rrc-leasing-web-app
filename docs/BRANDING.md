@@ -19,6 +19,13 @@ RRC Brand Book.pptx, supplied from the user's Desktop. Version printed in the so
 - Tagline: Building value. Delivering trust. Preserve periods, sentence case, once per composition; omit on forms (slide 45).
 - Website direction: readable contrast, responsive type, real proof, one clear action (slide 63).
 
+## Property detail page
+Preserve the original leasing-page composition from `4a7397a:website/app.js` and `website/redesign.css`: full navigation, compact title and location, a wide photo gallery, property details below, a gold-topped leasing card, and the full navy footer. On small screens, stack the details and leasing card and provide a working navigation menu.
+
+Display only the saved listing photographs. One photo fills the gallery; two photos sit side by side; three or more show a large cover with two smaller views. The photo viewer shows the complete image, all saved photos, thumbnails, and keyboard controls. Restore focus and page scrolling when it closes. Continue using the existing application and viewing forms so entered details are preserved while the form is open.
+
+Use the CMS title and verified specifications. Do not add invented amenities, duplicate photographs, or sample/preview notices to real listings. Local visual test fixtures remain in ignored `Archive` files and must never replace production data.
+
 ## Logos
 - rrc-logo-navy.png: exact ppt/media/image23.png, 800 x 542, 5,328 bytes; palette PNG with original transparency. Recommended for the white website header.
 - rrc-logo-white.png: exact ppt/media/image3.png, 800 x 542, 5,330 bytes; palette PNG with original transparency. White reverse logo for a dark solid field.
