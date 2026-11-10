@@ -54,12 +54,18 @@ export default function PropertyDetails({ listing }: { listing: Listing }) {
         <p>{listing.name !== listing.title && <>{listing.name} <span aria-hidden="true">·</span> </>}{location}</p>
       </header>
       <section className="property-detail-gallery" aria-label="Property photos">
-        {photos.length ? <div className={`property-photo-grid property-photo-grid-${Math.min(photos.length, 3)}`}>
-          {photos.slice(0, 3).map((photo, i) => <button key={photo.id} type="button" onClick={() => openPhotos(i)} aria-label={`Open photo ${i + 1} of ${photos.length}${photo.isCover ? ", cover" : ""}`}>
-            <PropertyPhoto src={photo.url} alt={photo.alt || `${listing.title} · photo ${i + 1}`} eager={i === 0} />
-          </button>)}
+        {photos.length ? <div className="property-gallery-preview">
+          <div className={`property-photo-grid property-photo-grid-${Math.min(photos.length, 3)}`}>
+            {photos.slice(0, 3).map((photo, i) => <button key={photo.id} type="button" onClick={() => openPhotos(i)} aria-label={`Open photo ${i + 1} of ${photos.length}${photo.isCover ? ", cover" : ""}`}>
+              <PropertyPhoto src={photo.url} alt={photo.alt || `${listing.title} · photo ${i + 1}`} eager={i === 0} />
+            </button>)}
+          </div>
+          <button className="btn btn-secondary property-gallery-more" type="button" aria-haspopup="dialog" aria-controls="property-photo-viewer" onClick={() => openPhotos(0)}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><rect x="2" y="2" width="6" height="6" rx="1" /><rect x="12" y="2" width="6" height="6" rx="1" /><rect x="2" y="12" width="6" height="6" rx="1" /><rect x="12" y="12" width="6" height="6" rx="1" /></svg>
+            {photos.length === 1 ? "View photo" : "View more photos"}
+          </button>
         </div> : <div className="property-gallery-empty"><PropertyPhoto alt={listing.title} /></div>}
-        <div className="property-gallery-actions"><Link className="property-back" href="/#properties">← Back to listings</Link>{photos.length > 0 && <button className="btn btn-secondary" type="button" onClick={() => openPhotos(0)}>View {photos.length === 1 ? "photo" : `all ${photos.length} photos`} <span aria-hidden="true">↗</span></button>}</div>
+        <div className="property-gallery-actions"><Link className="property-back" href="/#properties">← Back to listings</Link></div>
       </section>
       <div className="property-detail-layout">
         <section className="property-detail-main" aria-labelledby="space-title">
@@ -98,7 +104,7 @@ export default function PropertyDetails({ listing }: { listing: Listing }) {
         <div className="footer-bottom"><span>© 2026 Rosefood Realty Corporation</span><span>Philippines · Prices in PHP · Areas in m²</span></div>
       </div>
     </footer>
-    <dialog ref={gallery} className="property-photo-dialog" aria-labelledby="gallery-title" onClose={() => setGalleryOpen(false)} onKeyDown={event => {
+    <dialog ref={gallery} id="property-photo-viewer" className="property-photo-dialog" aria-labelledby="gallery-title" onClose={() => setGalleryOpen(false)} onKeyDown={event => {
       if (photos.length > 1 && (event.key === "ArrowLeft" || event.key === "ArrowRight")) { event.preventDefault(); movePhoto(event.key === "ArrowLeft" ? -1 : 1); }
     }}>
       <div className="property-photo-dialog-head"><div><h2 id="gallery-title">{listing.title}</h2><p>{location} · {listing.id}</p></div><button className="icon-button" type="button" aria-label="Close photo gallery" autoFocus onClick={() => gallery.current?.close()}>×</button></div>
